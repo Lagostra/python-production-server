@@ -1,9 +1,8 @@
 import flask
-import string
-import random
 import sys
 import inspect
 import uuid
+import numpy as np
 
 _archives = {}
 _type_map = {
@@ -11,6 +10,21 @@ _type_map = {
     float: 'double',
     int: 'int32',
     bool: 'logical'
+}
+
+_reverse_type_map = {
+    'char': str,
+    'double': np.double,
+    'single': np.float32,
+    'int8': np.int8,
+    'int16': np.int16,
+    'int32': np.int32,
+    'int64': np.int64,
+    'uint8': np.uint8,
+    'uint16': np.uint16,
+    'uint32': np.uint32,
+    'uint64': np.uint64,
+    'logical': np.bool_,
 }
 
 _app = flask.Flask(__name__)
@@ -107,7 +121,6 @@ def _call_function(archive_name, function_name):
         return _async_request(archive_name, function_name, flask.request)
     else:
         return _sync_request(archive_name, function_name, flask.request)
-
 
 
 def run(ip='0.0.0.0', port='8080'):
