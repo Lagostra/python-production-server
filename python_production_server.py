@@ -51,7 +51,7 @@ def _discovery():
                     'inputs': [],
                     'outputs': [
                         {
-                            'mwsize': [],
+                            'mwsize': [1, 'X'],
                             'mwtype': _type_map[func.__annotations__['return']],
                             'name': 'out'
                         }
@@ -61,7 +61,7 @@ def _discovery():
 
             for par_name in list(inspect.signature(func).parameters):
                 arch_response['functions'][func.__name__]['signatures'][0]['inputs'].append({
-                    'mwsize': [],
+                    'mwsize': [1, 1],
                     'mwtype': _type_map[func.__annotations__[par_name]],
                     'name': par_name
                 })
