@@ -98,5 +98,5 @@ def _call_function(archive_name, function_name):
 
 
 
-def run():
-    _app.run('0.0.0.0', 8080)
+def run(ip='0.0.0.0', port='8080'):
+    _app.run(ip, port)

@@ -8,4 +8,4 @@ def my_test_function(in1: float) -> str:
 if __name__ == '__main__':
     python_production_server.register_function('test_archive', my_test_function)
 
-    python_production_server.run()
+    python_production_server.run(port=8080)
