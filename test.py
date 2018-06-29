@@ -2,6 +2,11 @@ import python_production_server
 
 
 def my_test_function(in1: float) -> str:
+    """
+    My docstring
+    :param in1: Input paramater
+    :return: Test string
+    """
     return 'Input was: ' + str(in1)
 
 

@@ -48,6 +48,7 @@ def _discovery():
 
             arch_response['functions'][func_name] = {
                 'signatures': [{
+                    'help': func.__doc__,
                     'inputs': [],
                     'outputs': [
                         {
