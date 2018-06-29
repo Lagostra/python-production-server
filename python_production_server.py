@@ -3,6 +3,7 @@ import string
 import random
 import sys
 import inspect
+import uuid
 
 _archives = {}
 _type_map = {
@@ -18,7 +19,7 @@ _app = flask.Flask(__name__)
 def register_function(archive, func):
     if archive not in _archives:
         _archives[archive] = {
-            'uuid': archive + '_' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=32)),
+            'uuid': archive[:12] + '_' + uuid.uuid4().hex,
             'functions': {}
         }
     _archives[archive]['functions'][func.__name__] = func
