@@ -25,6 +25,15 @@ def register_function(archive, func):
     _archives[archive]['functions'][func.__name__] = func
 
 
+def _evaluate_type(annotation):
+    typ = _type_map[annotation]
+    size = [1, 1]
+
+    if typ == 'char':
+        size = [1, 'X']
+    return typ, size
+
+
 @_app.route('/api/discovery', methods=['GET'])
 def _discovery():
     response = {
@@ -46,14 +55,15 @@ def _discovery():
             assert len(func.__annotations__), 'All functions must be annotated!'
             assert 'return' in func.__annotations__, 'Return type must be annotated!'
 
+            out_type = _evaluate_type(func.__annotations__['return'])
             arch_response['functions'][func_name] = {
                 'signatures': [{
                     'help': func.__doc__,
                     'inputs': [],
                     'outputs': [
                         {
-                            'mwsize': [1, 'X'],
-                            'mwtype': _type_map[func.__annotations__['return']],
+                            'mwsize': out_type[1],
+                            'mwtype': out_type[0],
                             'name': 'out'
                         }
                     ]
