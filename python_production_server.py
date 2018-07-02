@@ -9,7 +9,18 @@ _type_map = {
     str: 'char',
     float: 'double',
     int: 'int32',
-    bool: 'logical'
+    bool: 'logical',
+    np.int64: 'int64',
+    np.int32: 'int32',
+    np.int16: 'int16',
+    np.int8: 'int8',
+    np.uint64: 'uint64',
+    np.uint32: 'uint32',
+    np.uint16: 'uint16',
+    np.uint8: 'uint8',
+    np.bool_: 'logical',
+    np.float64: 'double',
+    np.float32: 'single'
 }
 
 _reverse_type_map = {
