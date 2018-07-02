@@ -1,7 +1,8 @@
 import python_production_server
+import numpy as np
 
 
-def my_test_function(in1: float) -> str:
+def my_test_function(in1: np.double, in2: np.ndarray(shape=(1, 2), dtype=np.integer), in3:float) -> str:
     """
     My docstring
     :param in1: Input paramater

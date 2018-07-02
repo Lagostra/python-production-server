@@ -10,6 +10,15 @@ _type_map = {
     float: 'double',
     int: 'int32',
     bool: 'logical',
+    'float64': 'double',
+    'int8': 'int8',
+    'int16': 'int16',
+    'int32': 'int32',
+    'int64': 'int64',
+    'uint8': 'uint8',
+    'uint16': 'uint16',
+    'uint32': 'uint32',
+    'uint64': 'uint64',
     np.int64: 'int64',
     np.int32: 'int32',
     np.int16: 'int16',
@@ -51,8 +60,12 @@ def register_function(archive, func):
 
 
 def _evaluate_type(annotation):
-    typ = _type_map[annotation]
-    size = [1, 1]
+    if type(annotation) == np.ndarray:
+        typ = _type_map[annotation.dtype.__str__()]
+        size = annotation.shape
+    else:
+        typ = _type_map[annotation]
+        size = [1, 1]
 
     if typ == 'char':
         size = [1, 'X']
@@ -96,9 +109,10 @@ def _discovery():
             }
 
             for par_name in list(inspect.signature(func).parameters):
+                typ, size = _evaluate_type(func.__annotations__[par_name])
                 arch_response['functions'][func.__name__]['signatures'][0]['inputs'].append({
-                    'mwsize': [1, 1],
-                    'mwtype': _type_map[func.__annotations__[par_name]],
+                    'mwsize': size,
+                    'mwtype': typ,
                     'name': par_name
                 })
 
