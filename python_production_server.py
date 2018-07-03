@@ -65,11 +65,18 @@ def _execute_function(func, params, n_arg_out=-1, output_format=None):
             output_mode = output_format['mode']
 
     for i, par_name in enumerate(list(inspect.signature(func).parameters)):
-        params[i] = func.__annotations__[par_name](params[i])
+        if type(params[i]) == dict and 'mwtype' in params[i]:
+            params[i] = _reverse_type_map[params[i]['mwtype']](params[i]['mwdata'])
+        else:
+            params[i] = func.__annotations__[par_name](params[i])
 
     result = list(_iterify(func(*params)))
     if n_arg_out != -1:
         result = result[:n_arg_out]
+
+    for i in range(len(result)):
+        if type(result[i]) == np.ndarray:
+            result[i] = result[i].tolist()
 
     if output_mode == 'large':
         annotations = _iterify(func.__annotations__['return'])
