@@ -4,6 +4,7 @@ import inspect
 import uuid
 import numpy as np
 import collections
+import threading
 
 _archives = {}
 _type_map = {
@@ -232,6 +233,10 @@ def _async_request(archive_name, function_name, request_body, client_id=None):
         'state': async_call.state,
         'client': async_call.client_id
     }
+
+    thread = threading.Thread(target=async_call.execute)
+    thread.start()
+
     return flask.jsonify(response), 201
 
 
