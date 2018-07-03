@@ -117,9 +117,12 @@ class _AsyncFunctionCall:
         self.state = 'READING'
         self.result = []
         self.last_modified_seq = _server_seq
-    
+
     def execute(self):
         global _server_seq
+        if self.state == 'CANCELLED':
+            return
+
         self.state = 'PROCESSING'
         _server_seq += 1
         self.last_modified_seq = _server_seq
@@ -353,6 +356,53 @@ def _get_request_result(collection_id, request_id):
         return '404 RequestNotFound', 404
 
     return '500 InternalServerError', 500
+
+
+@_app.route('/<collection_id>/requests/<request_id>/cancel', methods=['POST'])
+def _cancel_request(collection_id, request_id):
+    if collection_id[0] == '~':
+        collection_id = collection_id[1:]
+
+    try:
+        request = _async_requests[collection_id][request_id]
+
+        if request.state == 'CANCELLED':
+            return '410 RequestAlreadyCancelled', 410
+        if request.state == 'READY':
+            return '410 RequestAlreadyCompleted', 410
+        if request.state == 'ERROR':
+            return '500 InternalServerError', 500
+
+        request.cancel()
+
+        return '204 No Content', 204
+
+    except KeyError:
+        return '404 RequestNotFound', 404
+
+    return '500 InternalServerError', 500
+
+
+@_app.route('/<collection_id>/requests/<request_id>', methods=['DELETE'])
+def _delete_request(collection_id, request_id):
+    if collection_id[0] == '~':
+        collection_id = collection_id[1:]
+
+    try:
+        request = _async_requests[collection_id][request_id]
+
+        if request.state not in ['READY', 'ERROR', 'CANCELLED']:
+            return '409 RequestNotCompleted', 409
+
+        del _async_requests[collection_id][request_id]
+
+        return '204 No Content', 204
+
+    except KeyError:
+        return '404 RequestNotFound', 404
+
+    return '500 InternalServerError', 500
+
 
 
 def run(ip='0.0.0.0', port='8080'):
