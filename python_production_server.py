@@ -174,6 +174,8 @@ def _evaluate_type(annotation):
     if type(annotation) == np.ndarray:
         typ = _type_map[annotation.dtype.__str__()]
         size = annotation.shape
+        if len(size) == 1:
+            size = (size[0], 'X')
     else:
         typ = _type_map[annotation]
         size = [1, 1]
