@@ -68,7 +68,11 @@ def _execute_function(func, params, n_arg_out=-1, output_format=None):
         if type(params[i]) == dict and 'mwtype' in params[i]:
             params[i] = _reverse_type_map[params[i]['mwtype']](params[i]['mwdata'])
         else:
-            params[i] = func.__annotations__[par_name](params[i])
+            annotation = func.__annotations__[par_name]
+            if type(annotation) == np.ndarray:
+                params[i] = np.array(params[i], dtype=annotation.dtype)
+            else:
+                params[i] = func.__annotations__[par_name](params[i])
 
     result = list(_iterify(func(*params)))
     if n_arg_out != -1:
