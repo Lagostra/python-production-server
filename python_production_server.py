@@ -51,7 +51,7 @@ _reverse_type_map = {
 
 _app = flask.Flask(__name__)
 _server_seq = 0
-_async_requests = collections.defaultdict(list)
+_async_requests = collections.defaultdict(dict)
 
 
 def _execute_function(func, params, n_arg_out=-1, output_format=None):
@@ -132,7 +132,7 @@ class _AsyncFunctionCall:
         self.last_modified_seq = _server_seq
         self.state = 'CANCELLED'
     
-    def status_dict(self):
+    def get_representation(self):
         return {
             'id': self.id,
             'self': '/~' + self.collection + '/requests/' + self.id,
@@ -245,9 +245,9 @@ def _async_request(archive_name, function_name, request_body, client_id=None):
     output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
 
     async_call = _AsyncFunctionCall(func, params, n_arg_out, output_format, client_id)
-    _async_requests[async_call.collection].append(async_call)
+    _async_requests[async_call.collection][async_call.id] = async_call
 
-    response = async_call.status_dict()
+    response = async_call.get_representation()
 
     thread = threading.Thread(target=async_call.execute)
     thread.start()
@@ -267,8 +267,11 @@ def _call_request(archive_name, function_name):
         return _sync_request(archive_name, function_name, flask.json.loads(flask.request.data))
 
 
-@_app.route('/<collection_id>', methods=['GET'])
+@_app.route('/<collection_id>/requests', methods=['GET'])
 def _get_collection(collection_id):
+    if collection_id[0] == '~':
+        collection_id = collection_id[1:]
+
     since = flask.request.args.get('since', None)
     if not since:
         return '400 MissingParamSince', 400
@@ -285,13 +288,26 @@ def _get_collection(collection_id):
             'data': []
         }
 
-        for request in _async_requests[collection_id]:
+        for request in _async_requests[collection_id].values():
             if ids and request.id in ids or clients and request.client_id in clients:
-                response['data'].append(request.status_dict())
+                response['data'].append(request.get_representation())
 
         return flask.jsonify(response)
     except KeyError:
         return '', 404
+
+
+@_app.route('/<collection_id>/requests/<request_id>')
+def _get_request_representation(collection_id, request_id):
+    if collection_id[0] == '~':
+        collection_id = collection_id[1:]
+
+    try:
+        response = _async_requests[collection_id][request_id].get_representation()
+
+        return flask.jsonify(response)
+    except KeyError:
+        return '404 ResourceNotFound', 404
 
 
 def run(ip='0.0.0.0', port='8080'):
