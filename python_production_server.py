@@ -50,7 +50,7 @@ _reverse_type_map = {
 }
 
 _app = flask.Flask(__name__)
-
+_server_seq = 0
 _async_requests = collections.defaultdict(list)
 
 
@@ -109,22 +109,38 @@ class _AsyncFunctionCall:
 
         self.state = 'READING'
         self.result = []
-        self.last_modified_seq = 1
+        self.last_modified_seq = _server_seq
     
     def execute(self):
+        global _server_seq
         self.state = 'PROCESSING'
-        self.last_modified_seq += 1
+        _server_seq += 1
+        self.last_modified_seq = _server_seq
         try:
             self.result = _execute_function(self.func, self.rhs, self.n_arg_out, self.output_format)
-            self.last_modified_seq += 1
+            _server_seq += 1
+            self.last_modified_seq = _server_seq
             self.state = 'READY'
         except Exception:
-            self.last_modified_seq += 1
+            _server_seq += 1
+            self.last_modified_seq = _server_seq
             self.state = 'ERROR'
 
     def cancel(self):
-        self.last_modified_seq += 1
+        global _server_seq
+        _server_seq += 1
+        self.last_modified_seq = _server_seq
         self.state = 'CANCELLED'
+    
+    def status_dict(self):
+        return {
+            'id': self.id,
+            'self': '/~' + self.collection + '/requests/' + self.id,
+            'up': '/~' + self.collection + '/requests',
+            'lastModifiedSeq': self.last_modified_seq,
+            'state': self.state,
+            'client': self.client_id
+        }
 
 
 def _iterify(x):
@@ -134,6 +150,8 @@ def _iterify(x):
 
 
 def register_function(archive, func):
+    global _server_seq
+    _server_seq += 1
     if archive not in _archives:
         _archives[archive] = {
             'uuid': archive[:12] + '_' + uuid.uuid4().hex,
@@ -206,6 +224,8 @@ def _discovery():
 
 
 def _sync_request(archive_name, function_name, request_body):
+    global _server_seq
+    _server_seq += 1
     params = request_body['rhs']
     n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
     output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
@@ -217,25 +237,22 @@ def _sync_request(archive_name, function_name, request_body):
 
 
 def _async_request(archive_name, function_name, request_body, client_id=None):
+    global _server_seq
+    _server_seq += 1
     func = _archives[archive_name]['functions'][function_name]
     params = request_body['rhs']
     n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
     output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
 
-    async_call = _AsyncFunctionCall(func, params, n_arg_out, output_format)
-    _async_requests[async_call.collection] = async_call
+    async_call = _AsyncFunctionCall(func, params, n_arg_out, output_format, client_id)
+    _async_requests[async_call.collection].append(async_call)
 
-    response = {
-        'id': async_call.id,
-        'self': '/~' + async_call.collection + '/requests/' + async_call.id,
-        'up': '/~' + async_call.collection + '/requests',
-        'lastModifiedSeq': async_call.last_modified_seq,
-        'state': async_call.state,
-        'client': async_call.client_id
-    }
+    response = async_call.status_dict()
 
     thread = threading.Thread(target=async_call.execute)
     thread.start()
+
+    print(_async_requests)
 
     return flask.jsonify(response), 201
 
@@ -248,6 +265,33 @@ def _call_request(archive_name, function_name):
         return _async_request(archive_name, function_name, flask.json.loads(flask.request.data), client_id)
     else:
         return _sync_request(archive_name, function_name, flask.json.loads(flask.request.data))
+
+
+@_app.route('/<collection_id>', methods=['GET'])
+def _get_collection(collection_id):
+    since = flask.request.args.get('since', None)
+    if not since:
+        return '400 MissingParamSince', 400
+    clients = flask.request.args.get('clients', None)
+    clients = clients.split(',') if clients else None
+    ids = flask.request.args.get('ids', None)
+    ids = ids.split(',') if ids else None
+    if not clients and not ids:
+        return '400 MissingQueryParams', 400
+
+    try:
+        response = {
+            'createdSeq': _server_seq,
+            'data': []
+        }
+
+        for request in _async_requests[collection_id]:
+            if ids and request.id in ids or clients and request.client_id in clients:
+                response['data'].append(request.status_dict())
+
+        return flask.jsonify(response)
+    except KeyError:
+        return '', 404
 
 
 def run(ip='0.0.0.0', port='8080'):
