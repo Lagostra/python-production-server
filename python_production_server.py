@@ -247,8 +247,11 @@ def _sync_request(archive_name, function_name, request_body):
     n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
     output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
 
-    func = _archives[archive_name]['functions'][function_name]
-    result = _execute_function(func, params, n_arg_out, output_format)
+    try:
+        func = _archives[archive_name]['functions'][function_name]
+        result = _execute_function(func, params, n_arg_out, output_format)
+    except KeyError:
+        return '404 FunctionNotFound', 404
 
     return flask.jsonify({'lhs': result})
 
@@ -256,7 +259,10 @@ def _sync_request(archive_name, function_name, request_body):
 def _async_request(archive_name, function_name, request_body, client_id=None):
     global _server_seq
     _server_seq += 1
-    func = _archives[archive_name]['functions'][function_name]
+    try:
+        func = _archives[archive_name]['functions'][function_name]
+    except KeyError:
+        return '404 ResourceNotFound', 404
     params = request_body['rhs']
     n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
     output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
