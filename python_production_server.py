@@ -12,6 +12,7 @@ _type_map = {
     float: 'double',
     int: 'int32',
     bool: 'logical',
+    'bool': 'logical',
     'float64': 'double',
     'float32': 'single',
     'int8': 'int8',
