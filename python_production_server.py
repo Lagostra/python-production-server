@@ -50,10 +50,12 @@ _reverse_type_map = {
 
 _app = flask.Flask(__name__)
 
+
 def _iterify(x):
-    if isinstance(x, collections.Sequence):
+    if isinstance(x, collections.Sequence) and type(x) != str:
         return x
-    return (x)
+    return (x,)
+
 
 def register_function(archive, func):
     if archive not in _archives:
@@ -114,7 +116,6 @@ def _discovery():
                     'name': 'out' + str(i+1)
                 })
 
-
             for par_name in list(inspect.signature(func).parameters):
                 typ, size = _evaluate_type(func.__annotations__[par_name])
                 arch_response['functions'][func.__name__]['signatures'][0]['inputs'].append({
@@ -132,39 +133,37 @@ def _execute_function(func, params, n_arg_out=-1, mode='small', nan_inf_format='
     for i, par_name in enumerate(list(inspect.signature(func).parameters)):
         params[i] = func.__annotations__[par_name](params[i])
 
-    result = func(*params)
-
+    result = list(_iterify(func(*params)))
+    result = list(map(lambda x: list(_iterify(x)), result))
     if n_arg_out != -1:
         result = result[:n_arg_out]
+    if mode == 'small' and nan_inf_format == 'string':
+        return result
 
 
+def _sync_request(archive_name, function_name, request_body):
+    params = request_body['rhs']
+    n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
 
-
-def _sync_request(archive_name, function_name, request):
-    params = flask.json.loads(request.form['rhs'])
     func = _archives[archive_name]['functions'][function_name]
-
-    for i, par_name in enumerate(list(inspect.signature(func).parameters)):
-        params[i] = func.__annotations__[par_name](params[i])
-
-    result = func(*params)
+    result = _execute_function(func, params, n_arg_out)
 
     return flask.jsonify({'lhs': result})
 
 
-def _async_request(archive_name, function_name, request):
+def _async_request(archive_name, function_name, request_body):
     func = _archives[archive_name]['functions'][function_name]
     # TODO Implement asynchronous requests
     return 'Asynchronous requests not yet implemented'
 
 
 @_app.route('/<archive_name>/<function_name>', methods=['POST'])
-def _call_function(archive_name, function_name):
+def _call_request(archive_name, function_name):
     mode = flask.request.args.get('mode', False)
     if mode and mode == 'async':
-        return _async_request(archive_name, function_name, flask.request)
+        return _async_request(archive_name, function_name, flask.json.loads(flask.request.data))
     else:
-        return _sync_request(archive_name, function_name, flask.request)
+        return _sync_request(archive_name, function_name, flask.json.loads(flask.request.data))
 
 
 def run(ip='0.0.0.0', port='8080'):
