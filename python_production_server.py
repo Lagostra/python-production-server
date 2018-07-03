@@ -404,6 +404,5 @@ def _delete_request(collection_id, request_id):
     return '500 InternalServerError', 500
 
 
-
 def run(ip='0.0.0.0', port='8080'):
     _app.run(ip, port)
