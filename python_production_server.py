@@ -134,11 +134,32 @@ def _execute_function(func, params, n_arg_out=-1, mode='small', nan_format='stri
         params[i] = func.__annotations__[par_name](params[i])
 
     result = list(_iterify(func(*params)))
-    result = list(map(lambda x: list(_iterify(x)), result))
     if n_arg_out != -1:
         result = result[:n_arg_out]
-    if mode == 'small' and nan_format == 'string' and inf_format == 'string':
-        return result
+
+    if mode == 'large':
+        annotations = _iterify(func.__annotations__['return'])
+        for i, out in enumerate(result):
+            typ, size = _evaluate_type(annotations[i])
+            if type(out) == np.ndarray:
+                size = out.shape
+            else:
+                # Try to set length based on element length (for strings and lists)
+                try:
+                    size = (1, len(out))
+                except TypeError:
+                    # Element has no length - use default (1, 1) size
+                    pass
+
+            result[i] = {
+                'mwtype': typ,
+                'mwsize': size,
+                'mwdata': list(_iterify(out))
+            }
+    else:
+        result = list(map(lambda x: list(_iterify(x)), result))
+
+    return result
 
 
 def _sync_request(archive_name, function_name, request_body):
