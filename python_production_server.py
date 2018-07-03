@@ -302,7 +302,7 @@ def _get_collection(collection_id):
         return '', 404
 
 
-@_app.route('/<collection_id>/requests/<request_id>')
+@_app.route('/<collection_id>/requests/<request_id>', methods=['GET'])
 def _get_request_representation(collection_id, request_id):
     if collection_id[0] == '~':
         collection_id = collection_id[1:]
@@ -315,7 +315,7 @@ def _get_request_representation(collection_id, request_id):
         return '404 ResourceNotFound', 404
 
 
-@_app.route('/<collection_id>/requests/<request_id>/info')
+@_app.route('/<collection_id>/requests/<request_id>/info', methods=['GET'])
 def _get_request_status(collection_id, request_id):
     if collection_id[0] == '~':
         collection_id = collection_id[1:]
@@ -334,7 +334,7 @@ def _get_request_status(collection_id, request_id):
         return '404 ResourceNotFound', 404
 
 
-@_app.route('/<collection_id>/requests/<request_id>/result')
+@_app.route('/<collection_id>/requests/<request_id>/result', methods=['GET'])
 def _get_request_result(collection_id, request_id):
     if collection_id[0] == '~':
         collection_id = collection_id[1:]
