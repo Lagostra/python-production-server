@@ -252,8 +252,6 @@ def _async_request(archive_name, function_name, request_body, client_id=None):
     thread = threading.Thread(target=async_call.execute)
     thread.start()
 
-    print(_async_requests)
-
     return flask.jsonify(response), 201
 
 
@@ -327,6 +325,28 @@ def _get_request_status(collection_id, request_id):
         return flask.jsonify(response)
     except KeyError:
         return '404 ResourceNotFound', 404
+
+
+@_app.route('/<collection_id>/requests/<request_id>/result')
+def _get_request_result(collection_id, request_id):
+    if collection_id[0] == '~':
+        collection_id = collection_id[1:]
+
+    try:
+        request = _async_requests[collection_id][request_id]
+
+        if request.state == 'CANCELLED':
+            return '410 RequestAlreadyCancelled', 410
+        if request.state == 'ERROR':
+            return '500 InternalServerError', 500
+        if request.state == 'READY':
+            return flask.jsonify({'lhs': request.result})
+
+    except KeyError:
+        return '404 RequestNotFound', 404
+
+    return '500 InternalServerError', 500
+
 
 def run(ip='0.0.0.0', port='8080'):
     _app.run(ip, port)
