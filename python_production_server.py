@@ -94,7 +94,7 @@ def _execute_function(func, params, n_arg_out=-1, output_format=None):
                     size = (1, len(out))
                 except TypeError:
                     # Element has no length - use default (1, 1) size
-                    pass
+                    size = (1, 1)
 
             result[i] = {
                 'mwtype': typ,
