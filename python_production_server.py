@@ -13,6 +13,7 @@ _type_map = {
     int: 'int32',
     bool: 'logical',
     'float64': 'double',
+    'float32': 'single',
     'int8': 'int8',
     'int16': 'int16',
     'int32': 'int32',
@@ -31,7 +32,7 @@ _type_map = {
     np.uint8: 'uint8',
     np.bool_: 'logical',
     np.float64: 'double',
-    np.float32: 'single'
+    np.float32: 'single',
 }
 
 _reverse_type_map = {
