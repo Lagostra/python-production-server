@@ -310,5 +310,23 @@ def _get_request_representation(collection_id, request_id):
         return '404 ResourceNotFound', 404
 
 
+@_app.route('/<collection_id>/requests/<request_id>/info')
+def _get_request_status(collection_id, request_id):
+    if collection_id[0] == '~':
+        collection_id = collection_id[1:]
+
+    try:
+        request = _async_requests[collection_id][request_id]
+
+        response = {
+            'request': '/~' + request.collection + '/requests/' + request.id,
+            'lastModifiedSeq': request.last_modified_seq,
+            'state': request.state
+        }
+
+        return flask.jsonify(response)
+    except KeyError:
+        return '404 ResourceNotFound', 404
+
 def run(ip='0.0.0.0', port='8080'):
     _app.run(ip, port)
