@@ -129,7 +129,7 @@ def _discovery():
     return flask.jsonify(response)
 
 
-def _execute_function(func, params, n_arg_out=-1, mode='small', nan_inf_format='string'):
+def _execute_function(func, params, n_arg_out=-1, mode='small', nan_format='string', inf_format='string'):
     for i, par_name in enumerate(list(inspect.signature(func).parameters)):
         params[i] = func.__annotations__[par_name](params[i])
 
@@ -137,16 +137,24 @@ def _execute_function(func, params, n_arg_out=-1, mode='small', nan_inf_format='
     result = list(map(lambda x: list(_iterify(x)), result))
     if n_arg_out != -1:
         result = result[:n_arg_out]
-    if mode == 'small' and nan_inf_format == 'string':
+    if mode == 'small' and nan_format == 'string' and inf_format == 'string':
         return result
 
 
 def _sync_request(archive_name, function_name, request_body):
     params = request_body['rhs']
     n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
+    inf_format = 'string'
+    nan_format = 'string'
+    output_mode = 'small'
+    if 'outputFormat' in request_body:
+        if 'nanInfFormat' in request_body['outputFormat']:
+            nan_format = inf_format = request_body['outputFormat']['nanInfFormat']
+        if 'mode' in request_body['outputFormat']:
+            output_mode = request_body['outputFormat']['mode']
 
     func = _archives[archive_name]['functions'][function_name]
-    result = _execute_function(func, params, n_arg_out)
+    result = _execute_function(func, params, n_arg_out, output_mode, nan_format, inf_format)
 
     return flask.jsonify({'lhs': result})
 
