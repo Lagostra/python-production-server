@@ -3,6 +3,7 @@ import sys
 import inspect
 import uuid
 import numpy as np
+import collections
 
 _archives = {}
 _type_map = {
@@ -49,6 +50,10 @@ _reverse_type_map = {
 
 _app = flask.Flask(__name__)
 
+def _iterify(x):
+    if isinstance(x, collections.Sequence):
+        return x
+    return (x)
 
 def register_function(archive, func):
     if archive not in _archives:
@@ -93,20 +98,22 @@ def _discovery():
             assert len(func.__annotations__), 'All functions must be annotated!'
             assert 'return' in func.__annotations__, 'Return type must be annotated!'
 
-            out_type = _evaluate_type(func.__annotations__['return'])
             arch_response['functions'][func_name] = {
                 'signatures': [{
                     'help': func.__doc__,
                     'inputs': [],
-                    'outputs': [
-                        {
-                            'mwsize': out_type[1],
-                            'mwtype': out_type[0],
-                            'name': 'out'
-                        }
-                    ]
+                    'outputs': []
                 }]
             }
+
+            for i, output in enumerate(_iterify(func.__annotations__['return'])):
+                typ, size = _evaluate_type(output)
+                arch_response['functions'][func.__name__]['signatures'][0]['outputs'].append({
+                    'mwsize': size,
+                    'mwtype': typ,
+                    'name': 'out' + str(i+1)
+                })
+
 
             for par_name in list(inspect.signature(func).parameters):
                 typ, size = _evaluate_type(func.__annotations__[par_name])
@@ -119,6 +126,18 @@ def _discovery():
         response['archives'][archive_key] = arch_response
 
     return flask.jsonify(response)
+
+
+def _execute_function(func, params, n_arg_out=-1, mode='small', nan_inf_format='string'):
+    for i, par_name in enumerate(list(inspect.signature(func).parameters)):
+        params[i] = func.__annotations__[par_name](params[i])
+
+    result = func(*params)
+
+    if n_arg_out != -1:
+        result = result[:n_arg_out]
+
+
 
 
 def _sync_request(archive_name, function_name, request):
