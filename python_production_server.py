@@ -50,6 +50,81 @@ _reverse_type_map = {
 
 _app = flask.Flask(__name__)
 
+_async_requests = collections.defaultdict(list)
+
+
+def _execute_function(func, params, n_arg_out=-1, output_format=None):
+    inf_format = 'string'
+    nan_format = 'string'
+    output_mode = 'small'
+    if output_format:
+        if 'nanInfFormat' in output_format:
+            nan_format = inf_format = output_format['nanInfFormat']
+        if 'mode' in output_format:
+            output_mode = output_format['mode']
+
+    for i, par_name in enumerate(list(inspect.signature(func).parameters)):
+        params[i] = func.__annotations__[par_name](params[i])
+
+    result = list(_iterify(func(*params)))
+    if n_arg_out != -1:
+        result = result[:n_arg_out]
+
+    if output_mode == 'large':
+        annotations = _iterify(func.__annotations__['return'])
+        for i, out in enumerate(result):
+            typ, size = _evaluate_type(annotations[i])
+            if type(out) == np.ndarray:
+                size = out.shape
+            else:
+                # Try to set length based on element length (for strings and lists)
+                try:
+                    size = (1, len(out))
+                except TypeError:
+                    # Element has no length - use default (1, 1) size
+                    pass
+
+            result[i] = {
+                'mwtype': typ,
+                'mwsize': size,
+                'mwdata': list(_iterify(out))
+            }
+    else:
+        result = list(map(lambda x: list(_iterify(x)), result))
+
+    return result
+
+
+class _AsyncFunctionCall:
+
+    def __init__(self, func, rhs, n_arg_out=-1, output_format=None, client_id=None, collection=None):
+        self.id = uuid.uuid4().hex
+        self.collection = collection if collection else uuid.uuid4().hex
+        self.func = func
+        self.rhs = rhs
+        self.n_arg_out = n_arg_out
+        self.output_format = output_format
+        self.client_id = client_id if client_id else ''
+
+        self.state = 'READING'
+        self.result = []
+        self.last_modified_seq = 1
+    
+    def execute(self):
+        self.state = 'PROCESSING'
+        self.last_modified_seq += 1
+        try:
+            self.result = _execute_function(self.func, self.rhs, self.n_arg_out, self.output_format)
+            self.last_modified_seq += 1
+            self.state = 'READY'
+        except Exception:
+            self.last_modified_seq += 1
+            self.state = 'ERROR'
+
+    def cancel(self):
+        self.last_modified_seq += 1
+        self.state = 'CANCELLED'
+
 
 def _iterify(x):
     if isinstance(x, collections.Sequence) and type(x) != str:
@@ -129,68 +204,43 @@ def _discovery():
     return flask.jsonify(response)
 
 
-def _execute_function(func, params, n_arg_out=-1, mode='small', nan_format='string', inf_format='string'):
-    for i, par_name in enumerate(list(inspect.signature(func).parameters)):
-        params[i] = func.__annotations__[par_name](params[i])
-
-    result = list(_iterify(func(*params)))
-    if n_arg_out != -1:
-        result = result[:n_arg_out]
-
-    if mode == 'large':
-        annotations = _iterify(func.__annotations__['return'])
-        for i, out in enumerate(result):
-            typ, size = _evaluate_type(annotations[i])
-            if type(out) == np.ndarray:
-                size = out.shape
-            else:
-                # Try to set length based on element length (for strings and lists)
-                try:
-                    size = (1, len(out))
-                except TypeError:
-                    # Element has no length - use default (1, 1) size
-                    pass
-
-            result[i] = {
-                'mwtype': typ,
-                'mwsize': size,
-                'mwdata': list(_iterify(out))
-            }
-    else:
-        result = list(map(lambda x: list(_iterify(x)), result))
-
-    return result
-
-
 def _sync_request(archive_name, function_name, request_body):
     params = request_body['rhs']
     n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
-    inf_format = 'string'
-    nan_format = 'string'
-    output_mode = 'small'
-    if 'outputFormat' in request_body:
-        if 'nanInfFormat' in request_body['outputFormat']:
-            nan_format = inf_format = request_body['outputFormat']['nanInfFormat']
-        if 'mode' in request_body['outputFormat']:
-            output_mode = request_body['outputFormat']['mode']
+    output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
 
     func = _archives[archive_name]['functions'][function_name]
-    result = _execute_function(func, params, n_arg_out, output_mode, nan_format, inf_format)
+    result = _execute_function(func, params, n_arg_out, output_format)
 
     return flask.jsonify({'lhs': result})
 
 
-def _async_request(archive_name, function_name, request_body):
+def _async_request(archive_name, function_name, request_body, client_id=None):
     func = _archives[archive_name]['functions'][function_name]
-    # TODO Implement asynchronous requests
-    return 'Asynchronous requests not yet implemented'
+    params = request_body['rhs']
+    n_arg_out = request_body['nargout'] if 'nargout' in request_body else -1
+    output_format = request_body['outputFormat'] if 'outputFormat' in request_body else None
+
+    async_call = _AsyncFunctionCall(func, params, n_arg_out, output_format)
+    _async_requests[async_call.collection] = async_call
+
+    response = {
+        'id': async_call.id,
+        'self': '/~' + async_call.collection + '/requests/' + async_call.id,
+        'up': '/~' + async_call.collection + '/requests',
+        'lastModifiedSeq': async_call.last_modified_seq,
+        'state': async_call.state,
+        'client': async_call.client_id
+    }
+    return flask.jsonify(response), 201
 
 
 @_app.route('/<archive_name>/<function_name>', methods=['POST'])
 def _call_request(archive_name, function_name):
     mode = flask.request.args.get('mode', False)
     if mode and mode == 'async':
-        return _async_request(archive_name, function_name, flask.json.loads(flask.request.data))
+        client_id = flask.request.args.get('client', None)
+        return _async_request(archive_name, function_name, flask.json.loads(flask.request.data), client_id)
     else:
         return _sync_request(archive_name, function_name, flask.json.loads(flask.request.data))
 
