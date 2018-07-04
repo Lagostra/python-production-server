@@ -59,7 +59,7 @@ _async_requests = collections.defaultdict(dict)
 def _execute_function(func, params, n_arg_out=-1, output_format=None):
     inf_format = 'string'
     nan_format = 'string'
-    output_mode = 'small'
+    output_mode = 'large'
     if output_format:
         if 'nanInfFormat' in output_format:
             nan_format = inf_format = output_format['nanInfFormat']
