@@ -29,6 +29,15 @@ python_production_server.register_function('basic_arithmetics', multiply)
 python_production_server.run(port=8080)
 ```
 
+If an array type is desired, then annotate the parameter with an np.ndarray with the correct shape and dtype. If any
+dimensions are unknown, a 0 can be used. (As an effect, zero-sized dimensions are not supported.) For example, a
+function that transposes an array might look like this:
+
+```python
+def transpose(x: np.ndarray(shape=(0, 0), dtype=np.double)) -> np.ndarray(shape=(0, 0), dtype=np.double):
+    return x.T
+```
+
 Additional options such as adding an entire package (and then as an archive) and auto-loading from a given folder might
 be added at a later stage.
 
