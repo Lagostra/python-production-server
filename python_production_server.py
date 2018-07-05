@@ -179,13 +179,9 @@ def register_function(archive, func):
 def _evaluate_type(annotation):
     if type(annotation) == np.ndarray:
         typ = _type_map[annotation.dtype.__str__()]
-        if len(annotation.shape) == 1:
-            # Assume that a 1D array of unknown length is wanted
-            size = (annotation.shape[0], 'X')
-        else:
-            size = []
-            for d in annotation.shape:
-                size.append(d if d != 0 else 'X')
+        size = []
+        for d in annotation.shape:
+            size.append(d if d != 0 else 'X')
     else:
         typ = _type_map[annotation]
         size = [1, 1]
