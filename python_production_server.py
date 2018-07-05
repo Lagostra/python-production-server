@@ -5,6 +5,8 @@ import uuid
 import numpy as np
 import collections
 import threading
+import importlib
+import pkgutil
 
 _archives = {}
 _type_map = {
@@ -174,6 +176,17 @@ def register_function(archive, func):
             'functions': {}
         }
     _archives[archive]['functions'][func.__name__] = func
+
+
+def autoload_package(pkg_name):
+    modules = list(map(lambda m: importlib.import_module(pkg_name + '.' + m.name),
+                       pkgutil.iter_modules([pkg_name])))
+
+    for module in modules:
+        functions = list(map(lambda x: x[1], filter(lambda x: inspect.isroutine(x[1]) and not inspect.isbuiltin(x[1]),
+                                                    inspect.getmembers(modules[0]))))
+        for func in functions:
+            register_function(module.__name__, func)
 
 
 def _evaluate_type(annotation):
