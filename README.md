@@ -38,8 +38,12 @@ def transpose(x: np.ndarray(shape=(0, 0), dtype=np.double)) -> np.ndarray(shape=
     return x.T
 ```
 
-Additional options such as adding an entire package (and then as an archive) and auto-loading from a given folder might
-be added at a later stage.
+In addition to registering single functions, you can also register a module, adding all functions inside the module.
+The last option is to define an autoload package, from which all modules will be loaded. Only the first level will be
+scanned; modules inside packages inside of the specified package will not be added. Note that only the module name will
+be used as archive name; not the containing package. As such, there will be conflicts if registering multiple modules
+with the same name, that in turn contain functions with the same name. In this case, only the last registered of these
+functions will be accessible.
 
 ## Contributions
 Contributions through pull requests are very welcome. I am not an expert in either MATLAB or Numpy, so there might be
