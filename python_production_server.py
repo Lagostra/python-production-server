@@ -178,15 +178,21 @@ def register_function(archive, func):
     _archives[archive]['functions'][func.__name__] = func
 
 
+def register_module(module):
+    functions = list(map(lambda x: x[1], filter(lambda x: inspect.isroutine(x[1]) and not inspect.isbuiltin(x[1]),
+                                                inspect.getmembers(module))))
+
+    for func in functions:
+        m_name = module.__name__.split('.')[-1]
+        register_function(m_name, func)
+
+
 def autoload_package(pkg_name):
     modules = list(map(lambda m: importlib.import_module(pkg_name + '.' + m.name),
                        pkgutil.iter_modules([pkg_name])))
 
     for module in modules:
-        functions = list(map(lambda x: x[1], filter(lambda x: inspect.isroutine(x[1]) and not inspect.isbuiltin(x[1]),
-                                                    inspect.getmembers(modules[0]))))
-        for func in functions:
-            register_function(module.__name__, func)
+        register_module(module)
 
 
 def _evaluate_type(annotation):

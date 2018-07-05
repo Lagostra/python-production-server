@@ -1,4 +1,5 @@
 import python_production_server
+from autoload import basic_arithmetics
 
 
 if __name__ == '__main__':
